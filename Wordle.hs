@@ -114,7 +114,7 @@ displayTries tries
 
 readWordsFile :: IO String
 readWordsFile = do
-  handle <- openFile "mots.txt" ReadMode  
+  handle <- openFile "5letterswords.txt" ReadMode
   hGetContents handle
 
 -- WIP
@@ -127,4 +127,3 @@ parseAnswer a
 
 parseTry :: String -> String -> GameAnswer
 parseTry word answer = map (\(c, a) -> (LetterGuess c (parseAnswer a))) (zip word answer)
-

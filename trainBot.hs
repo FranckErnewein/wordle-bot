@@ -1,6 +1,6 @@
 import Wordle
 
-playAll = do
+main = do
   fileContent <- readWordsFile
   let allWords = fiveLettersWords fileContent
   let count = autoplayAll allWords allWords 0
