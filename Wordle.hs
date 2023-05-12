@@ -23,13 +23,13 @@ countLetter :: String -> Map.Map Char Int -> Map.Map Char Int
 countLetter [] m = m
 countLetter xs m = foldl addLetter m xs
 
-aggregateLetters :: String -> [(Char, Int)]
-aggregateLetters xs = sortBy (flip compare `on` snd) (Map.toList $ countLetter xs lettersCount)
+aggregateLetters :: String -> Map.Map Char Int
+aggregateLetters xs = countLetter xs lettersCount
 
-popularLetters :: [String] -> [(Char, Int)] 
+popularLetters :: [String] -> Map.Map Char Int
 popularLetters = aggregateLetters . concat
 
-popularLettersAt :: [String] -> Int -> [(Char, Int)]
+popularLettersAt :: [String] -> Int -> Map.Map Char Int
 popularLettersAt w x = aggregateLetters $ map (!! x) w  
 
 lettersWithStatus :: Tries -> LetterStatus -> String
@@ -56,9 +56,23 @@ wordWithPopularLetter letters limit ws
     sortedTopLetters = take limit $ sort $ map fst letters
     filtered = filter (\w -> sortedTopLetters `intersect` take limit (sort w) == sortedTopLetters) ws
 
+filterWords :: [String] -> Tries -> [String]
+-- filterWords ws [] = ws
+-- filterWords ws (t:xt) = filterWords (filter (checkGuess t) ws) xt
+filterWords = foldl (\ ws t -> filter (checkGuess t) ws)
+
+scoreWord :: Map.Map Char Int -> String -> Int
+scoreWord m [] = 0
+scoreWord m (l:w) = scoreWord m w + m Map.! l
+
 idealWord :: [String] -> Tries -> String
-idealWord ws [] = wordWithPopularLetter (take 5 $ popularLetters ws) 5 ws
-idealWord ws (t:xt) = idealWord (filter (checkGuess t) ws) xt
+idealWord ws ts =
+  let filtered = filterWords ws ts
+      letters = popularLetters filtered
+      scores = map (scoreWord letters . nub) filtered
+      scored = zip scores filtered
+      ordered = sortBy (flip compare `on` fst) scored
+  in snd $ head ordered
 
 displayTupleList :: [(Char, Int)] -> String
 displayTupleList [] = ""
@@ -94,9 +108,9 @@ autoplayAll allwords (w:ws) x = autoplayAll allwords ws (x + length (autoplay al
 
 stats :: [String] ->  String
 stats w = unlines $ [
-    "total words analysed: " ++ show (length w), " ", 
-    "letters sorted by popularity:", displayTupleList $ popularLetters w, " "
-  ] ++ map (\i -> "position " ++ show (i + 1) ++ ": " ++ displayTupleList (take 5 (popularLettersAt w i)) ++ "\n") [0..4]
+    "total words analysed: " ++ show (length w), " "]
+    -- "letters sorted by popularity:", displayTupleList $ popularLetters w, " "
+  -- ] ++ map (\i -> "position " ++ show (i + 1) ++ ": " ++ displayTupleList (take 5 (popularLettersAt w i)) ++ "\n") [0..4]
   
 
 
@@ -108,7 +122,7 @@ displayLetterGuess (LetterGuess c s)
 
 displayTries :: Tries -> String
 displayTries tries  
-  | hasWon tries = intercalate "\n" $ map (map displayLetterGuess) (reverse tries)
+  | hasWon tries = unlines $ map (map displayLetterGuess) (reverse tries)
   | otherwise = "----"
 
 

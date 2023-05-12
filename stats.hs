@@ -1,6 +1,6 @@
 import Wordle
 
-main = do
+printStats = do
   fileContent <- readWordsFile
   putStr $ stats $ fiveLettersWords fileContent
 
