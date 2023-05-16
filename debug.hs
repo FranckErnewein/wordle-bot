@@ -1,16 +1,14 @@
 import Wordle
 import Data.List
 import Data.Function
+import Control.Monad
 
-main = do
+
+main = forever $ do
   fileContent <- readWordsFile
   let allWords = fiveLettersWords fileContent
-  let t = parseTry "RAIES" "10021"
-  let filteredWords = filterWords allWords [t]
-  let popLetters = popularLetters filteredWords
-  print popLetters 
-  print filteredWords
-  let scores = map (scoreWord popLetters . nub) filteredWords 
-  print $ sortBy (flip compare `on` fst) (zip scores filteredWords)
-
-  
+  -- print $ sortBy (flip compare `on` fst) $ zip (map (scoreWord allWords) allWords) allWords
+  w1 <- getLine
+  w2 <- getLine
+  putStrLn $ map displayLetterGuess (guess w1 w2)
+  -- putStrLn $ map displayLetterGuess (guess "MOLLE" "ECOLE")

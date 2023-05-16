@@ -1,6 +1,9 @@
 import Wordle
+import Data.List
+import Data.Function
 
-printStats = do
+main = do
   fileContent <- readWordsFile
-  putStr $ stats $ fiveLettersWords fileContent
-
+  let allWords = fiveLettersWords fileContent
+  putStrLn "all words by score:"
+  print $ sortBy (flip compare `on` fst) $ zip (map (scoreWord allWords) allWords) allWords

@@ -4,6 +4,7 @@ import Control.Monad
 import Data.Function
 import Data.List
 import Data.Char
+import Data.Maybe
 import qualified Data.Map as Map
 import System.IO
 
@@ -13,6 +14,11 @@ data LetterGuess = LetterGuess Char LetterStatus deriving (Eq, Show, Read)
 type GameAnswer = [LetterGuess]
 type Tries = [[LetterGuess]]
 
+-- utils
+fst3 :: (a, b, c) -> a
+fst3 (x, _, _) = x
+
+-- Letter Stats
 lettersCount :: Map.Map Char Int
 lettersCount = Map.fromList (map (, 0) ['A'..'Z'])
 
@@ -31,10 +37,10 @@ popularLetters = aggregateLetters . concat
 
 popularLettersAt :: [String] -> Int -> Map.Map Char Int
 popularLettersAt w x = aggregateLetters $ map (!! x) w  
+-- Letter Stats End
 
 lettersWithStatus :: Tries -> LetterStatus -> String
 lettersWithStatus tries status = map (\(LetterGuess c _) -> c) $ filter (\(LetterGuess _ s) -> s == status) (concat tries)
-
 
 checkGuessChar :: String -> (LetterGuess, Int) -> Bool
 checkGuessChar word (LetterGuess cg status, i) 
@@ -42,7 +48,7 @@ checkGuessChar word (LetterGuess cg status, i)
   | status == BadPlace = word !! i /= cg && cg `elem` word
   | status == BadLetter = cg `notElem` word
 
-checkGuess :: (GameAnswer -> String -> Bool)
+checkGuess :: GameAnswer -> String -> Bool
 checkGuess a w =
   let zipped = zip a [0..]
   in all (checkGuessChar w) zipped
@@ -57,26 +63,27 @@ wordWithPopularLetter letters limit ws
     filtered = filter (\w -> sortedTopLetters `intersect` take limit (sort w) == sortedTopLetters) ws
 
 filterWords :: [String] -> Tries -> [String]
--- filterWords ws [] = ws
--- filterWords ws (t:xt) = filterWords (filter (checkGuess t) ws) xt
 filterWords = foldl (\ ws t -> filter (checkGuess t) ws)
 
-scoreWord :: Map.Map Char Int -> String -> Int
-scoreWord m [] = 0
-scoreWord m (l:w) = scoreWord m w + m Map.! l
+statusScore :: LetterStatus -> Int
+statusScore GoodPlace = 2
+statusScore BadPlace = 1
+statusScore BadLetter = 0
+
+answerToScore :: GameAnswer -> Int
+answerToScore = foldl (\i (LetterGuess _ s) -> i + statusScore s) 0
+
+scoreWord :: [String] -> String -> Int
+scoreWord [] w = 0
+scoreWord (x:xs) w = scoreWord xs w + answerToScore (guess x w)
 
 idealWord :: [String] -> Tries -> String
+idealWord _ [] = "RAIES"
 idealWord ws ts =
   let filtered = filterWords ws ts
-      letters = popularLetters filtered
-      scores = map (scoreWord letters . nub) filtered
-      scored = zip scores filtered
+      scored = map (\w -> (w, scoreWord filtered w)) filtered
       ordered = sortBy (flip compare `on` fst) scored
-  in snd $ head ordered
-
-displayTupleList :: [(Char, Int)] -> String
-displayTupleList [] = ""
-displayTupleList ((c, x):xs) = "\n - " ++ c:  ":" ++ show x ++ displayTupleList xs
+  in fst $ head ordered
 
 fiveLettersWords :: String -> [String] 
 fiveLettersWords = filter (\x -> length x == 5) . lines
@@ -87,8 +94,16 @@ checkLetter wordSolution (letterTried, letterSolution)
   | letterTried `elem` wordSolution = LetterGuess letterTried BadPlace 
   | otherwise = LetterGuess letterTried BadLetter 
 
+iterateLetters :: String -> (GameAnswer, Int, [Int]) -> Char -> (GameAnswer, Int, [Int])
+iterateLetters solution (answer, i, used) c
+    | idx == 1000 || idx `elem` used = (answer ++ [LetterGuess c BadLetter], i+1, used)
+    | idx == i = (answer ++ [LetterGuess c GoodPlace], i+1, used ++ [idx])
+    | c `elem` solution = (answer ++ [LetterGuess c BadPlace], i+1, used ++ [idx])
+    | otherwise = (answer ++ [LetterGuess c BadLetter], i+1, used)
+    where idx = fromMaybe 1000 (c `elemIndex` solution)
+
 guess :: String -> String -> GameAnswer
-guess wordTried wordToFind = zipWith (curry (checkLetter wordToFind)) wordTried wordToFind 
+guess guessWord solution = fst3 $ foldl (iterateLetters solution) ([], 0, []) guessWord
 
 play :: Tries -> String -> String -> Tries
 play tries wordTried wordToFind = guess wordTried wordToFind : tries
@@ -102,17 +117,12 @@ autoplay allwords wordToFind tries
   | otherwise = autoplay allwords wordToFind newTries
   where newTries = play tries (idealWord allwords tries) wordToFind
 
-autoplayAll :: [String] -> [String] -> Int -> Int
-autoplayAll allwords [] x = x
-autoplayAll allwords (w:ws) x = autoplayAll allwords ws (x + length (autoplay allwords w []))
+autoplayAll :: [String] -> Int
+autoplayAll allWords = foldl (\x w -> x + length (autoplay allWords w [])) 0 allWords
 
-stats :: [String] ->  String
-stats w = unlines $ [
-    "total words analysed: " ++ show (length w), " "]
-    -- "letters sorted by popularity:", displayTupleList $ popularLetters w, " "
-  -- ] ++ map (\i -> "position " ++ show (i + 1) ++ ": " ++ displayTupleList (take 5 (popularLettersAt w i)) ++ "\n") [0..4]
-  
-
+displayTupleList :: [(Char, Int)] -> String
+displayTupleList [] = ""
+displayTupleList ((c, x):xs) = "\n - " ++ c:  ":" ++ show x ++ displayTupleList xs
 
 displayLetterGuess :: LetterGuess -> Char
 displayLetterGuess (LetterGuess c s)
@@ -125,19 +135,8 @@ displayTries tries
   | hasWon tries = unlines $ map (map displayLetterGuess) (reverse tries)
   | otherwise = "----"
 
-
 readWordsFile :: IO String
 readWordsFile = do
   handle <- openFile "5letterswords.txt" ReadMode
   hGetContents handle
 
--- WIP
-
-parseAnswer :: Char -> LetterStatus
-parseAnswer a  
-    | a == '0' = BadLetter
-    | a == '1' = BadPlace
-    | a == '2' = GoodPlace
-
-parseTry :: String -> String -> GameAnswer
-parseTry word answer = map (\(c, a) -> (LetterGuess c (parseAnswer a))) (zip word answer)
