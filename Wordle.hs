@@ -63,7 +63,10 @@ wordWithPopularLetter letters limit ws
     filtered = filter (\w -> sortedTopLetters `intersect` take limit (sort w) == sortedTopLetters) ws
 
 filterWords :: [String] -> Tries -> [String]
-filterWords = foldl (\ ws t -> filter (checkGuess t) ws)
+-- filterWords = foldl (\ ws t -> filter (checkGuess t) ws)
+filterWords ws [] = ws
+filterWords ws (t:ts) = filterWords (filter (checkGuess t) ws) ts
+
 
 statusScore :: LetterStatus -> Int
 statusScore GoodPlace = 2
@@ -82,7 +85,7 @@ idealWord _ [] = "RAIES"
 idealWord ws ts =
   let filtered = filterWords ws ts
       scored = map (\w -> (w, scoreWord filtered w)) filtered
-      ordered = sortBy (flip compare `on` fst) scored
+      ordered = sortBy (flip compare `on` snd) scored
   in fst $ head ordered
 
 fiveLettersWords :: String -> [String] 
@@ -94,13 +97,17 @@ checkLetter wordSolution (letterTried, letterSolution)
   | letterTried `elem` wordSolution = LetterGuess letterTried BadPlace 
   | otherwise = LetterGuess letterTried BadLetter 
 
+elemAvoid :: (Eq a) => a -> [a] -> [Int] -> Int
+-- elemAvoid c ws [] = fromMaybe 1000 (c `elemIndex` ws)
+elemAvoid c ws banned =fromMaybe 1000 $ find (`notElem` banned) (c `elemIndices` ws)
+
 iterateLetters :: String -> (GameAnswer, Int, [Int]) -> Char -> (GameAnswer, Int, [Int])
 iterateLetters solution (answer, i, used) c
     | idx == 1000 || idx `elem` used = (answer ++ [LetterGuess c BadLetter], i+1, used)
     | idx == i = (answer ++ [LetterGuess c GoodPlace], i+1, used ++ [idx])
     | c `elem` solution = (answer ++ [LetterGuess c BadPlace], i+1, used ++ [idx])
     | otherwise = (answer ++ [LetterGuess c BadLetter], i+1, used)
-    where idx = fromMaybe 1000 (c `elemIndex` solution)
+    where idx = elemAvoid c solution used
 
 guess :: String -> String -> GameAnswer
 guess guessWord solution = fst3 $ foldl (iterateLetters solution) ([], 0, []) guessWord
@@ -118,7 +125,7 @@ autoplay allwords wordToFind tries
   where newTries = play tries (idealWord allwords tries) wordToFind
 
 autoplayAll :: [String] -> Int
-autoplayAll allWords = foldl (\x w -> x + length (autoplay allWords w [])) 0 allWords
+autoplayAll ws = foldl (\x w -> x + length (autoplay ws w [])) 0 ws
 
 displayTupleList :: [(Char, Int)] -> String
 displayTupleList [] = ""
@@ -131,9 +138,7 @@ displayLetterGuess (LetterGuess c s)
   | s == BadPlace = '🟨'
 
 displayTries :: Tries -> String
-displayTries tries  
-  | hasWon tries = unlines $ map (map displayLetterGuess) (reverse tries)
-  | otherwise = "----"
+displayTries tries = unlines $ map (map displayLetterGuess) (reverse tries)
 
 readWordsFile :: IO String
 readWordsFile = do
