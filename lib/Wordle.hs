@@ -1,1 +1,0 @@
-module Wordle where
