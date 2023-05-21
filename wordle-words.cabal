@@ -29,15 +29,21 @@ library wordle-words-lib
     build-depends: base ^>=4.16.4.0, containers ^>=0.6.5.1
     default-language: Haskell2010
 
-executable wordle-words
-    main-is:          Main.hs
+executable play
+    main-is:          PlayToday.hs
+    build-depends:    base ^>=4.16.4.0, wordle-words-lib
+    hs-source-dirs:   app
+    default-language: Haskell2010
 
-    -- Modules included in this executable, other than Main.
-    -- other-modules:
+executable stats
+    main-is:          Stats.hs
+    build-depends:    base ^>=4.16.4.0, wordle-words-lib
+    hs-source-dirs:   app
+    default-language: Haskell2010
 
-    -- LANGUAGE extensions used by modules in this package.
-    -- other-extensions:
-    build-depends:    base ^>=4.16.4.0,
+executable train
+    main-is:          TrainBot.hs
+    build-depends:    base ^>=4.16.4.0, wordle-words-lib
     hs-source-dirs:   app
     default-language: Haskell2010
 
