@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 module Wordle where
 
 import Control.Monad
