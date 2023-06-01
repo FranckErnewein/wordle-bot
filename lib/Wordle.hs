@@ -19,6 +19,10 @@ type Tries = [[LetterGuess]]
 fst3 :: (a, b, c) -> a
 fst3 (x, _, _) = x
 
+-- accessor
+getLetterGuessChar (LetterGuess c _) = c
+getLetterGuessStatus (LetterGuess _ s) = s
+
 -- Letter Stats
 lettersCount :: Map.Map Char Int
 lettersCount = Map.fromList (map (, 0) ['A'..'Z'])
@@ -41,12 +45,12 @@ popularLettersAt w x = aggregateLetters $ map (!! x) w
 -- Letter Stats End
 
 lettersWithStatus :: Tries -> LetterStatus -> String
-lettersWithStatus tries status = map (\(LetterGuess c _) -> c) $ filter (\(LetterGuess _ s) -> s == status) (concat tries)
+lettersWithStatus tries status = map getLetterGuessChar $ filter (\(LetterGuess _ s) -> s == status) (concat tries)
 
 
 rmLetter :: String -> Int -> String
 rmLetter word i
-  | i < length word = word
+  | i >= length word = word
   | otherwise = take i word ++ "_" ++ drop (i+1) word
 
 rmNextLetter :: String -> Char -> String
@@ -73,7 +77,7 @@ statusScore BadPlace = 1
 statusScore BadLetter = 0
 
 answerToScore :: GameAnswer -> Int
-answerToScore = foldl (\i (LetterGuess _ s) -> i + statusScore s) 0
+answerToScore = foldl (\i lg -> i + (statusScore . getLetterGuessStatus) lg) 0
 
 scoreWord :: [String] -> String -> Int
 scoreWord [] w = 0
@@ -90,32 +94,33 @@ idealWord ws ts =
 fiveLettersWords :: String -> [String] 
 fiveLettersWords = filter (\x -> length x == 5) . lines
 
-checkLetter :: String -> (Char, Char) -> LetterGuess
-checkLetter wordSolution (letterTried, letterSolution)
-  | letterTried == letterSolution = LetterGuess letterTried GoodPlace
-  | letterTried `elem` wordSolution = LetterGuess letterTried BadPlace 
-  | otherwise = LetterGuess letterTried BadLetter 
+goodPlaceAt :: String -> String -> [Int]
+goodPlaceAt guessWord solution = map fst3 $ filter (\(i, g, s) -> g == s) $ zip3 [0..] guessWord solution
 
-elemAvoid :: (Eq a) => a -> [a] -> [Int] -> Int
-elemAvoid c ws banned = fromMaybe 1000 $ find (`notElem` banned) (c `elemIndices` ws)
-
-iterateLetters :: String -> String -> Int -> GameAnswer -> GameAnswer
-iterateLetters [] _ _ answer = answer 
-iterateLetters (c:w) solution i answer 
-  | (solution !! i) == c = iterateLetters w (rmLetter solution i) (i+1) (answer++[LetterGuess c GoodPlace])
-  | c `elem` solution = iterateLetters w (rmNextLetter solution c) (i+1) (answer++[LetterGuess c BadPlace])
-  | c `notElem` solution = iterateLetters w solution (i+1) (answer++[LetterGuess c BadLetter])
-
-
+badPlaceAt :: String -> String -> [Int]
+badPlaceAt guessWord solution =
+  let f [] _ _ = []
+      f (c:w) s i
+        | s !! i /= c && c `elem` s = i:f w (rmNextLetter s c) (i+1)
+        | otherwise = f w s (i+1)
+  in f guessWord solution 0
 
 guess :: String -> String -> GameAnswer
-guess guessWord solution = iterateLetters guessWord solution 0 []
+guess guessWord solution =
+  let gp = goodPlaceAt guessWord solution
+      bp = badPlaceAt guessWord (foldl rmLetter solution gp)
+      f (c, i)
+        | i `elem` gp = LetterGuess c GoodPlace
+        | i `elem` bp = LetterGuess c BadPlace
+        | otherwise = LetterGuess c BadLetter
+  in map f (zip guessWord [0..])
 
 play :: Tries -> String -> String -> Tries
 play tries wordTried wordToFind = guess wordTried wordToFind : tries
 
 hasWon :: Tries -> Bool
-hasWon tries = all (\(LetterGuess _ s) -> s == GoodPlace) (head tries)
+hasWon [] =  False
+hasWon tries = all ((== GoodPlace) . getLetterGuessStatus) (head tries)
 
 autoplay :: [String] -> String -> Tries -> Tries
 autoplay allwords wordToFind tries   
@@ -137,13 +142,22 @@ displayLetterGuess (LetterGuess c s)
   | s == BadPlace = '🟨'
 
 displayAnswer :: GameAnswer -> String
-displayAnswer a = map (\(LetterGuess c _) -> c) a ++ " " ++ map displayLetterGuess a 
+displayAnswer a = map getLetterGuessChar a ++ " " ++ map displayLetterGuess a
 
 displayTries :: Tries -> String
 displayTries tries = unlines $ map displayAnswer (reverse tries)
+
+parseStatus :: Char -> LetterStatus
+parseStatus '2' = GoodPlace
+parseStatus '1' = BadPlace
+parseStatus '0' = BadLetter
+
+parseAnswer :: String -> GameAnswer
+parseAnswer input = map (\ (c:s:rest) -> LetterGuess c (parseStatus s)) $ words input
 
 readWordsFile :: IO String
 readWordsFile = do
   handle <- openFile "5letterswords.txt" ReadMode
   hGetContents handle
+
 

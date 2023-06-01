@@ -43,7 +43,7 @@ executable stats
 
 executable train
     main-is:          TrainBot.hs
-    build-depends:    base ^>=4.16.4.0, wordle-words-lib
+    build-depends:    base ^>=4.16.4.0, time ^>=1.11.1.1, wordle-words-lib
     hs-source-dirs:   app
     default-language: Haskell2010
 

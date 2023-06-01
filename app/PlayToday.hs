@@ -1,7 +1,8 @@
 import Wordle
 import Data.Char
+import Control.Monad
 
-main = do
+main = forever $ do
   fileContent <- readWordsFile
   putStrLn "What is the word today ?"
   wordToFind <- getLine
