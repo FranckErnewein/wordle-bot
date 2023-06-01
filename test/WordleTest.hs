@@ -38,7 +38,7 @@ tests = TestList [
   , TestCase (assertEqual "filterword: good places" [LetterGuess 'A' GoodPlace, LetterGuess 'B' BadPlace, LetterGuess 'C' BadLetter] (parseAnswer "A2 B1 C0") )
 
   , TestCase (assertEqual "filterword: good places" ["ABC"] (filterWords ["ABC", "DEF", "GHI"] [parseAnswer "A2 X0 X0"]))
-  -- , TestCase (assertEqual "filterword: good places" ["CREER"] (filterWords ["CERNE", "XXXXX", "CREER"] [parseAnswer "A2 X0 X0"]))
+  , TestCase (assertEqual "filterword: good places" ["CREER"] (filterWords ["CERNE", "OOOOO", "CREER"] [parseAnswer "C2 X0 E2 X0"]))
   ]
 
 
