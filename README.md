@@ -4,15 +4,15 @@ assuming [GHCup](https://www.haskell.org/ghcup/) installed
 
 ### print words stats
 ```
-runhaskell stats.hs
+cabal run stats
 ```
 
 ### play one word
 ```
-runhaskell playToday.hs
+cabal run stats
 ```
 
-### play all words and print performance
+### play all words and avergae score
 ```
-runhaskell trainBot.hs
+cabal run train
 ```
