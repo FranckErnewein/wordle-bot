@@ -5,8 +5,6 @@ main = do
   fileContent <- readWordsFile
   let allWords = fiveLettersWords fileContent
   startTime <- getCurrentTime
-  let count = autoplayAll allWords
-  print $ fromIntegral count / fromIntegral (length allWords)
+  progressivePlayAll allWords 0 0
   endTime <- getCurrentTime
-  let diff = diffUTCTime endTime startTime
-  putStrLn $ "Execution Time: " ++ show diff
+  putStrLn $ "Execution Time: " ++ show (diffUTCTime endTime startTime)

@@ -56,20 +56,34 @@ rmLetter word i
 rmNextLetter :: String -> Char -> String
 rmNextLetter w c = rmLetter w (fromMaybe 1000 (c `elemIndex` w))
 
-iterateGuess :: (Bool, Int, String) -> GameAnswer -> Bool
-iterateGuess (False, _, _) _ = False
-iterateGuess (True, _, _) [] = True
-iterateGuess (True, i, word) ((LetterGuess c s):lgs)
-  | s == GoodPlace = iterateGuess (word !! i == c, i+1, rmLetter word i) lgs
-  | s == BadPlace = iterateGuess (word !! i /= c && c `elem` word, i+1, rmLetter word (fromMaybe 1000 (c `elemIndex` word))) lgs
-  | s == BadLetter = iterateGuess (c `notElem` word, i+1, word) lgs
+checkGoodPlace :: GameAnswer -> String -> Int -> String
+checkGoodPlace _ [] _ = []
+checkGoodPlace [] word i = word
+checkGoodPlace (LetterGuess c s:lgs) word i
+  | s == GoodPlace && word !! i == c = checkGoodPlace lgs (rmLetter word i) (i+1)
+  | s == GoodPlace = []
+  | otherwise = checkGoodPlace lgs word (i+1)
 
-checkGuess :: GameAnswer -> String -> Bool
-checkGuess answer w = iterateGuess (True, 0, w) answer
+checkBadPlace :: GameAnswer -> String -> Int -> String
+checkBadPlace _ [] _ = []
+checkBadPlace [] word _ = word
+checkBadPlace (LetterGuess c s:lgs) word i
+  | s == BadPlace && word !! i /= c && c `elem` word = checkBadPlace lgs (rmNextLetter word c) (i+1)
+  | s == BadPlace = []
+  | otherwise = checkBadPlace lgs word (i+1)
 
-filterWords :: [String] -> Tries -> [String]
-filterWords ws [] = ws
-filterWords ws (t:ts) = filterWords (filter (checkGuess t) ws) ts
+checkBadLetter :: GameAnswer -> String -> Bool
+checkBadLetter _ [] = False
+checkBadLetter answer word = all ((`notElem` word) . getLetterGuessChar) $ filter ((==BadLetter) . getLetterGuessStatus) answer
+
+checkWord :: GameAnswer -> String -> Bool
+checkWord answer word = checkBadLetter answer (checkBadPlace answer (checkGoodPlace answer word 0) 0)
+
+filterOnAnswer :: GameAnswer -> [String] -> [String]
+filterOnAnswer answer = filter (checkWord answer)
+
+filterOnTries :: Tries -> [String] -> [String]
+filterOnTries ts ws = foldl (flip filterOnAnswer) ws ts
 
 statusScore :: LetterStatus -> Int
 statusScore GoodPlace = 2
@@ -86,7 +100,7 @@ scoreWord (x:xs) w = scoreWord xs w + answerToScore (guess x w)
 idealWord :: [String] -> Tries -> String
 idealWord _ [] = "RAIES"
 idealWord ws ts =
-  let filtered = filterWords ws ts
+  let filtered = filterOnTries ts ws
       scored = map (\w -> (w, scoreWord filtered w)) filtered
       ordered = sortBy (flip compare `on` snd) scored
   in fst $ head ordered
@@ -108,7 +122,7 @@ badPlaceAt guessWord solution =
 guess :: String -> String -> GameAnswer
 guess guessWord solution =
   let gp = goodPlaceAt guessWord solution
-      bp = badPlaceAt guessWord (foldl rmLetter solution gp)
+      bp = badPlaceAt (foldl rmLetter guessWord gp) (foldl rmLetter solution gp)
       f (c, i)
         | i `elem` gp = LetterGuess c GoodPlace
         | i `elem` bp = LetterGuess c BadPlace
@@ -160,4 +174,18 @@ readWordsFile = do
   handle <- openFile "5letterswords.txt" ReadMode
   hGetContents handle
 
+progressivePlay :: [String] -> String -> Tries -> IO Int
+progressivePlay ws w t
+  | hasWon t = return (length t)
+  | otherwise = putStrLn (displayAnswer (head stackTry)) >> next
+  where stackTry = play t (idealWord ws t) w
+        next = progressivePlay ws w stackTry
 
+progressivePlayAll :: [String] -> Int -> Int -> IO ()
+progressivePlayAll ws count i
+  | i == length ws = print $ fromIntegral count / fromIntegral i
+  | otherwise = do
+    putStrLn $ "play " ++ (ws !! i) ++ " (" ++ show (i+1) ++ "/" ++ show (length ws) ++ ")"
+    t <- progressivePlay ws (ws !! i) []
+    putStr $ if t > 5 then replicate (6 - t) '\n' else "\n"
+    progressivePlayAll ws (count + t) (i+1)
